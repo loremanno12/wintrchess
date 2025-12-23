@@ -218,10 +218,8 @@ function PrivacyPolicy() {
                 </a>
 
                 {" "}which is always located in the footer of the page.
-            </span>
-                
-            <span>
-                6.2 Through the same prompt, you also have the right to withdraw your consent to
+
+                Through the same prompt, you also have the right to withdraw your consent to
                 this collection at any time. You may also read the{" "}
 
                 <a href="https://policies.google.com/privacy">
@@ -230,6 +228,27 @@ function PrivacyPolicy() {
 
                 , should you want to read more about what information is collected in regard to
                 serving advertisements on the Website.
+            </span>
+
+            <span>
+                6.2 We use Google Analytics to collect information about how visitors
+                use the Website, including pages visited, time spent, and interactions. 
+                This includes IP addresses, browser and device information, and 
+                approximate location. Cookies are also used for this and for purposes
+                of security. We use this data to understand how WintrChess is used,
+                improve user experience, and analyse traffic patterns. Analytics
+                data is processed by Google LLC; they may use this data in accordance
+                with their own privacy policy. You can always opt out of this if you
+                would like by installing Google's official{" "}
+
+                <a href={
+                    "https://chromewebstore.google.com/detail/google-analytics"
+                    + "-opt-out/fllaojicojecljbmefodhfapmkghcbnh?hl=en-GB"
+                }>
+                    "Google Analytics Opt-out Add-on" browser extension
+                </a>
+
+                .
             </span>
 
             <h2 style={{ margin: 0 }}>
@@ -276,7 +295,7 @@ function PrivacyPolicy() {
             </span>
 
             <span>
-                Last revision to this privacy policy: 31st July 2025
+                Last revision to this privacy policy: 23rd December 2025
             </span>
 
             <h2 style={{ margin: 0 }}>

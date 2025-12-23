@@ -88,6 +88,12 @@ ADS_PUBLISHER_ID="ca-pub-3914142339921252"
 Your Google AdSense publisher ID, if you would like to enable advertisements. Note that advertisements will not display on local deployments.
 
 ```toml
+ANALYTICS_MEASUREMENT_ID="G-EX024ZXSNX"
+```
+
+A Google Analytics Measurement ID, if you would like to enable analytics.
+
+```toml
 EMAIL_ACCOUNT="contact@wintrchess.com"
 AUTOMATED_EMAIL_ADDRESS="no-reply@wintrchess.com"
 AUTOMATED_EMAIL_KEY="aaaa bbbb cccc dddd"

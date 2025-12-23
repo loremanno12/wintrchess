@@ -9,6 +9,7 @@ import Announcement from "@/components/layout/Announcement";
 import NavigationBar from "@/components/layout/NavigationBar";
 import Footer from "@/components/layout/Footer";
 import BugReportingWidget from "@/components/BugReportingWidget";
+import AnalyticsTag from "@/components/AnalyticsTag";
 
 import PageWrapperProps from "./PageWrapperProps";
 import * as styles from "./PageWrapper.module.css";
@@ -33,6 +34,8 @@ function PageWrapper({
     const [ announcementOpen, setAnnouncementOpen ] = useState(true);
 
     return <QueryClientProvider client={queryClient}>
+        <AnalyticsTag/>
+
         <div className={className} style={style}>
             {announcementOpen && announcementStatus == "success"
                 && <Announcement
