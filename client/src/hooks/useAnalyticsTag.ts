@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 
+type GTagFunction = (...args: any[]) => void;
+
 const googleTagURL = "https://www.googletagmanager.com/gtag/js?id=";
 const measurementId = process.env.ANALYTICS_MEASUREMENT_ID;
 
@@ -14,9 +16,9 @@ function useAnalyticsTag() {
 
         window.dataLayer ??= [];
 
-        const gtag = (...args: any[]) => (
-            window.dataLayer.push(...args)
-        );
+        const gtag: GTagFunction = function() {
+            window.dataLayer.push(arguments);
+        };
 
         gtag("js", new Date());
         gtag("config", measurementId);

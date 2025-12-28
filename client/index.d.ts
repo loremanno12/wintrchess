@@ -11,5 +11,5 @@ declare interface Window {
         callbackQueue: any[];
         showRevocationMessage: () => void;
     };
-    dataLayer: any[];
+    dataLayer: IArguments[];
 }
