@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 
 import { formatDate } from "shared/lib/utils/date";
 import { useNewsArticle } from "@/hooks/api/useNewsArticles";
@@ -62,7 +62,9 @@ function Article() {
 
                 <ReactMarkdown
                     className={styles.content}
-                    urlTransform={value => value}
+                    urlTransform={url => url.startsWith("data:")
+                        ? url : defaultUrlTransform(url)
+                    }
                 >
                     {article.content}
                 </ReactMarkdown>

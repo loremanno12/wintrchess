@@ -15,7 +15,7 @@ function internalAuthenticator(redirect = false): RequestHandler {
             return next();
 
         const internalToken = req.cookies[Cookie.INTERNAL_SESSION_TOKEN];
-        if (!internalToken) return reject(res);
+        if (typeof internalToken != "string") return reject(res);
 
         const session = await InternalSession.findOne({
             token: internalToken
