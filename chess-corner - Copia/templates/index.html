@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisi Scacchi Stockfish</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+    :root {
+        --bg-color: #302e2b;
+        --sidebar-bg: #262421;
+        --text-color: #c3c3c3;
+        --accent-color: #81b64c;
+        --accent-hover: #a3d160;
+        --board-light: #ebecd0;
+        --board-dark: #739552;
+        --highlight: rgba(255, 255, 50, 0.5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        overflow: hidden;
+    }
+
+    .main-container {
+        display: flex;
+        background: var(--sidebar-bg);
+        border-radius: 4px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        overflow: hidden;
+        flex-wrap: wrap;
+        max-width: 1000px;
+    }
+
+    /* SCACCHIERA */
+    .board-container {
+        position: relative;
+        width: 600px;
+        height: 600px;
+        user-select: none;
+        background-color: #21201d;
+    }
+
+    .board-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+        width: 100%;
+        height: 100%;
+    }
+
+    .square {
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+
+    .square.light { background-color: var(--board-light); }
+    .square.dark { background-color: var(--board-dark); }
+
+    /* Coordinate */
+    .coord {
+        position: absolute;
+        font-size: 12px;
+        font-weight: bold;
+        pointer-events: none;
+    }
+    .coord.rank { top: 2px; left: 2px; }
+    .coord.file { bottom: 2px; right: 2px; }
+    .square.light .coord { color: var(--board-dark); }
+    .square.dark .coord { color: var(--board-light); }
+
+    /* PEZZI */
+    .pieces-layer {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 5;
+    }
+
+    .piece {
+        position: absolute;
+        width: 12.5%;
+        height: 12.5%;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        cursor: grab;
+        z-index: 6;
+        transition: transform 0.1s;
+    }
+    
+    .piece.dragging {
+        cursor: grabbing;
+        z-index: 1000;
+        transition: none;
+    }
+
+    /* INDICATORI MOSSE LEGALI */
+    .legal-dot {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 25%; height: 25%;
+        background: rgba(0,0,0,0.15);
+        border-radius: 50%;
+        z-index: 4;
+    }
+
+    .legal-ring {
+        position: absolute;
+        width: 80%; height: 80%;
+        top: 10%; left: 10%;
+        border: 6px solid rgba(0,0,0,0.1);
+        border-radius: 50%;
+        z-index: 4;
+    }
+
+    /* CANVAS FRECCE */
+    canvas {
+        position: absolute;
+        top: 0; left: 0;
+        pointer-events: none;
+        z-index: 20;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+        width: 350px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        border-left: 2px solid #3c3b39;
+    }
+
+    h2 { margin-bottom: 20px; font-size: 1.3rem; color: #fff; }
+    
+    .input-group { margin-bottom: 20px; }
+    
+    textarea {
+        width: 100%; height: 60px;
+        background: rgba(0,0,0,0.2);
+        color: #fff; border: 1px solid #403e3c;
+        border-radius: 4px; padding: 10px;
+        font-family: monospace; resize: none;
+    }
+
+    .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+
+    button {
+        flex-grow: 1; padding: 12px;
+        background-color: var(--accent-color);
+        color: white; border: none; border-radius: 4px;
+        font-weight: bold; cursor: pointer;
+        box-shadow: 0 4px 0 0 #5f8a35;
+    }
+    button:hover { background-color: var(--accent-hover); }
+    button:active { transform: translateY(2px); box-shadow: 0 2px 0 0 #5f8a35; }
+
+    .flip-btn { flex-grow: 0; width: 50px; background-color: #3c3b39; box-shadow: 0 4px 0 0 #262421; }
+
+    .analysis-box {
+        background: rgba(0,0,0,0.2);
+        border-radius: 4px; padding: 15px; flex-grow: 1;
+    }
+
+    .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #403e3c; padding-bottom: 5px; }
+    .stat-label { color: #888; }
+    .stat-value { color: #fff; font-weight: bold; }
+
+    @media (max-width: 980px) {
+        .main-container { flex-direction: column; height: 100vh; overflow-y: auto; }
+        .board-container { width: 100vw; height: 100vw; }
+        .sidebar { width: 100%; border-left: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="board-container" id="boardWrapper">
+        <div id="boardGrid" class="board-grid"></div>
+        <div id="piecesLayer" class="pieces-layer"></div>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="sidebar">
+        <h2>♞ Analisi Stockfish</h2>
+        
+        <div class="input-group">
+            <label>Posizione FEN</label>
+            <textarea id="fen">r1bqkbnr/pppppppp/2n5/8/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1</textarea>
+        </div>
+
+        <div class="controls">
+            <button id="analyzeBtn" onclick="analyze()">Analizza</button>
+            <button class="flip-btn" onclick="toggleFlip()" title="Gira Scacchiera">🔄</button>
+        </div>
+
+        <div class="analysis-box" id="resultBox" style="display:none;">
+            <div class="stat-row">
+                <span class="stat-label">Valutazione:</span>
+                <span class="stat-value" id="evalValue">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Miglior Mossa:</span>
+                <span class="stat-value" id="bestMove">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Profondità:</span>
+                <span class="stat-value" id="depthValue">-</span>
+            </div>
+            <div id="pvText" style="font-size: 0.85rem; color: #aaa; margin-top: 10px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * CONFIGURAZIONE
+ */
+const game = new Chess();
+const boardWrapper = document.getElementById("boardWrapper");
+const piecesLayer = document.getElementById("piecesLayer");
+const boardGrid = document.getElementById("boardGrid");
+const overlay = document.getElementById("overlay");
+const fenInput = document.getElementById("fen");
+const ctx = overlay.getContext("2d");
+
+let isFlipped = false;
+let draggedPiece = null;
+let startSquare = null;
+let animationFrame = null;
+let resizeTimeout = null;
+
+// Mappatura originale per le tue immagini in /static/pieces/
+const pieceMap = {
+    "p":"bp","r":"br","n":"bn","b":"bb","q":"bq","k":"bk",
+    "P":"wp","R":"wr","N":"wn","B":"wb","Q":"wq","K":"wk"
+};
+
+/**
+ * LOGICA SCACCHIERA
+ */
+
+function createBoard() {
+    boardGrid.innerHTML = "";
+    for (let i = 0; i < 64; i++) {
+        const row = Math.floor(i / 8);
+        const col = i % 8;
+        
+        const displayRow = isFlipped ? 7 - row : row;
+        const displayCol = isFlipped ? 7 - col : col;
+        
+        const square = document.createElement("div");
+        const isDark = (displayRow + displayCol) % 2 === 1;
+        square.className = `square ${isDark ? "dark" : "light"}`;
+        square.dataset.addr = String.fromCharCode(97 + displayCol) + (8 - displayRow);
+        
+        // Coordinate
+        if (displayCol === 0) {
+            const rank = document.createElement("span");
+            rank.className = "coord rank";
+            rank.innerText = 8 - displayRow;
+            square.appendChild(rank);
+        }
+        if (displayRow === 7) {
+            const file = document.createElement("span");
+            file.className = "coord file";
+            file.innerText = String.fromCharCode(97 + displayCol);
+            square.appendChild(file);
+        }
+        boardGrid.appendChild(square);
+    }
+    renderPieces();
+}
+
+function renderPieces() {
+    piecesLayer.innerHTML = "";
+    const board = game.board();
+
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const piece = board[r][c];
+            if (piece) {
+                const pieceEl = document.createElement("div");
+                pieceEl.className = "piece";
+                
+                // Mappa il pezzo al tuo file immagine locale
+                const typeCode = piece.color === 'w' ? piece.type.toUpperCase() : piece.type;
+                const fileName = pieceMap[typeCode];
+                pieceEl.style.backgroundImage = `url('/static/pieces/${fileName}.png')`;
+                
+                const displayRow = isFlipped ? 7 - r : r;
+                const displayCol = isFlipped ? 7 - c : c;
+                
+                pieceEl.style.left = (displayCol * 12.5) + "%";
+                pieceEl.style.top = (displayRow * 12.5) + "%";
+                pieceEl.dataset.sq = String.fromCharCode(97 + c) + (8 - r);
+                
+                pieceEl.addEventListener('mousedown', startDragging);
+                pieceEl.addEventListener('touchstart', startDragging, {passive: false});
+                
+                piecesLayer.appendChild(pieceEl);
+            }
+        }
+    }
+}
+
+/**
+ * DRAG AND DROP & MOSSE LEGALI
+ */
+
+function showLegalMoves(sq) {
+    document.querySelectorAll('.legal-dot, .legal-ring').forEach(el => el.remove());
+    const moves = game.moves({ square: sq, verbose: true });
+
+    moves.forEach(m => {
+        const targetSq = document.querySelector(`.square[data-addr="${m.to}"]`);
+        if (targetSq) {
+            const indicator = document.createElement('div');
+            // Se la mossa è una cattura usa il cerchio, altrimenti il pallino
+            indicator.className = (m.flags.includes('c') || m.flags.includes('e')) ? 'legal-ring' : 'legal-dot';
+            targetSq.appendChild(indicator);
+        }
+    });
+}
+
+function startDragging(e) {
+    e.preventDefault();
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+    
+    draggedPiece = e.target;
+    startSquare = draggedPiece.dataset.sq;
+    
+    showLegalMoves(startSquare);
+    draggedPiece.classList.add('dragging');
+    moveAt(clientX, clientY);
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('touchmove', onMouseMove, {passive: false});
+    document.addEventListener('touchend', onMouseUp);
+}
+
+function moveAt(clientX, clientY) {
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+
+    animationFrame = requestAnimationFrame(() => {
+        if (!draggedPiece) return;
+        const rect = boardWrapper.getBoundingClientRect();
+        draggedPiece.style.left = (clientX - rect.left - draggedPiece.offsetWidth/2) + 'px';
+        draggedPiece.style.top = (clientY - rect.top - draggedPiece.offsetHeight/2) + 'px';
+    });
+}
+
+function onMouseMove(e) {
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+    moveAt(clientX, clientY);
+}
+
+function onMouseUp(e) {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.removeEventListener('touchmove', onMouseMove);
+    document.removeEventListener('touchend', onMouseUp);
+    document.querySelectorAll('.legal-dot, .legal-ring').forEach(el => el.remove());
+
+    const clientX = e.type.includes('touch') ? e.changedTouches[0].clientX : e.clientX;
+    const clientY = e.type.includes('touch') ? e.changedTouches[0].clientY : e.clientY;
+    
+    const rect = boardWrapper.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    
+    if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+        const col = Math.floor(x / (rect.width / 8));
+        const row = Math.floor(y / (rect.height / 8));
+        const targetCol = isFlipped ? 7 - col : col;
+        const targetRow = isFlipped ? 7 - row : row;
+        const targetSq = String.fromCharCode(97 + targetCol) + (8 - targetRow);
+        
+        const move = game.move({ from: startSquare, to: targetSq, promotion: 'q' });
+        if (move) {
+            fenInput.value = game.fen();
+            clearOverlay();
+        }
+    }
+    createBoard();
+    draggedPiece = null;
+}
+
+/**
+ * GRAFICA FRECCE (STILE CHESS.COM)
+ */
+function drawBestMove(bestMoveStr, evaluation) {
+    clearOverlay();
+    if (!bestMoveStr || bestMoveStr.length < 4) return;
+
+    const fromXY = getSquareCenter(bestMoveStr.substring(0, 2));
+    const toXY = getSquareCenter(bestMoveStr.substring(2, 4));
+    const sqSize = overlay.width / 8;
+
+    const isWhiteAdv = !evaluation.toString().includes('-');
+    const color = isWhiteAdv ? "rgba(129, 182, 76, 0.85)" : "rgba(245, 150, 40, 0.85)";
+
+    const x1 = fromXY.x, y1 = fromXY.y, x2 = toXY.x, y2 = toXY.y;
+    const headLen = sqSize * 0.4;
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = sqSize * 0.2;
+    ctx.lineCap = "round";
+
+    // Linea
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2 - headLen * 0.5 * Math.cos(angle), y2 - headLen * 0.5 * Math.sin(angle));
+    ctx.stroke();
+
+    // Punta
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+    ctx.fill();
+}
+
+function getSquareCenter(sq) {
+    const col = sq.charCodeAt(0) - 97;
+    const row = 8 - parseInt(sq[1]);
+    const dCol = isFlipped ? 7 - col : col;
+    const dRow = isFlipped ? 7 - row : row;
+    const sz = overlay.width / 8;
+    return { x: dCol * sz + sz/2, y: dRow * sz + sz/2 };
+}
+
+function clearOverlay() { ctx.clearRect(0, 0, overlay.width, overlay.height); }
+
+/**
+ * ANALISI E INTERFACCIA
+ */
+
+function toggleFlip() {
+    isFlipped = !isFlipped;
+    createBoard();
+    clearOverlay();
+}
+
+async function analyze() {
+    const fen = fenInput.value.trim();
+    if (!game.load(fen)) { alert("FEN invalida"); return; }
+
+    const btn = document.getElementById("analyzeBtn");
+    btn.disabled = true;
+    btn.textContent = "Analisi...";
+
+    try {
+        const res = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fen, mode: "deep" })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Errore server");
+
+        document.getElementById("resultBox").style.display = "block";
+        document.getElementById("evalValue").textContent = data.evaluation;
+        document.getElementById("bestMove").textContent = data.bestmove;
+        document.getElementById("depthValue").textContent = data.depth;
+        document.getElementById("pvText").textContent = data.pv;
+
+        drawBestMove(data.bestmove, data.evaluation);
+    } catch (e) {
+        console.error(e);
+        alert(e.message || "Errore durante l'analisi.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Analizza";
+    }
+}
+
+// Inizializzazione
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        const rect = boardWrapper.getBoundingClientRect();
+        overlay.width = rect.width;
+        overlay.height = rect.height;
+        createBoard();
+    }, 100);
+});
+
+// Trigger iniziale
+setTimeout(() => {
+    const rect = boardWrapper.getBoundingClientRect();
+    overlay.width = rect.width;
+    overlay.height = rect.height;
+    game.load(fenInput.value);
+    createBoard();
+}, 100);
+
+</script>
+</body>
+</html>
